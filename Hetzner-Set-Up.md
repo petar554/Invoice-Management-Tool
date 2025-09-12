@@ -62,7 +62,7 @@ hcloud ssh-key create --name "invoice-tool-key" --public-key-from-file "$env:USE
 
 ## 4. Server Creation
 
-### Create Server
+### Create Server (cx11 is taken as an example)
 ```powershell
 hcloud server create `
   --type cx11 `
