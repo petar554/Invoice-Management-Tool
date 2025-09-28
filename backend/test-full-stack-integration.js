@@ -1,4 +1,4 @@
-// full Stack Integration Test
+// Full Stack Integration Test
 const axios = require('axios')
 const { createClient } = require('@supabase/supabase-js')
 require('dotenv').config()
@@ -6,7 +6,7 @@ require('dotenv').config()
 const FRONTEND_URL = 'http://localhost:3000'
 const BACKEND_URL = 'http://localhost:3001'
 
-console.log('🔗 Full Stack Integration Test\n')
+console.log('Full Stack Integration Test\n')
 
 // Node.js environment diagnostics
 console.log('Environment Info:')
@@ -39,7 +39,7 @@ async function testIntegration() {
     }
   } catch (error) {
     if (error.code === 'ECONNREFUSED') {
-      console.log('Frontend server not running on port 5173')
+      console.log('Frontend server not running on port 3000')
     } else if (error.code === 'TIMEOUT') {
       console.log('Frontend server timeout (maybe responding slowly)')
     } else {
@@ -147,7 +147,7 @@ async function testIntegration() {
     }
 
     // test Storage bucket - Enhanced diagnostics
-    console.log('\n🗂️ Storage bucket diagnostics...')
+    console.log('\n Storage bucket diagnostics...')
     
     // check Supabase configuration
     console.log('Supabase URL:', process.env.SUPABASE_URL ? process.env.SUPABASE_URL.substring(0, 30) + '...' : 'NOT SET')
@@ -228,7 +228,7 @@ async function testIntegration() {
     }
 
     // Test search_documents function
-    console.log('\nTesting database functions...')
+    console.log('\n sTesting database functions...')
     try {
       const { data: searchData, error: searchError } = await supabase
         .rpc('search_documents', { search_query: 'test' })
