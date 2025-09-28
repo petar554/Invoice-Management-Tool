@@ -85,7 +85,7 @@ class EmailService extends EventEmitter {
    */
   disconnect() {
     if (this.imap && this.isConnected) {
-      console.log('sDisconnecting from email server...');
+      console.log('Disconnecting from email server...');
       this.imap.end();
       this.isConnected = false;
     }
