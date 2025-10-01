@@ -2,7 +2,7 @@ const express = require('express')
 const multer = require('multer')
 const { body, query, validationResult } = require('express-validator')
 const { supabaseAdmin } = require('../config/supabase')
-const authMiddleware = require('../middleware/auth')
+const { authMiddleware } = require('../middleware/auth')
 
 const router = express.Router()
 
@@ -118,7 +118,7 @@ router.get('/', [
       throw error
     }
 
-    // if search is provided- than use the search function
+    // if search is provided - than use the search function
     let searchResults = documents
     if (search) {
       const { data: searchData, error: searchError } = await supabaseAdmin
