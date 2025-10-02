@@ -8,6 +8,7 @@ require('dotenv').config()
 const { testConnection } = require('./config/supabase')
 const authRoutes = require('./routes/auth')
 const documentRoutes = require('./routes/documents')
+const emailRoutes = require('./routes/email')
 const { errorHandler, notFound } = require('./middleware/errorHandler')
 
 const app = express()
@@ -75,6 +76,7 @@ app.get('/health', async (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes)
 app.use('/api/documents', documentRoutes)
+app.use('/api/email', emailRoutes)
 
 app.get('/', (req, res) => {
   res.json({
