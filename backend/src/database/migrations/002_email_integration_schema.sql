@@ -294,3 +294,24 @@ BEGIN
     RAISE NOTICE 'Functions: search_documents_enhanced, classify_document, get_document_statistics';
     RAISE NOTICE 'View: documents_with_metadata';
 END $$;
+
+-- SELECTS
+
+-- how much emails os processed today
+-- SELECT COUNT(*) FROM email_processing_logs 
+-- WHERE DATE(processed_at) = CURRENT_DATE AND processing_status = 'completed';
+
+-- emails with errors
+-- SELECT email_subject, email_from, error_message 
+-- FROM email_processing_logs 
+-- WHERE processing_status = 'error';
+
+-- emails with partial processed attachments
+-- SELECT * FROM email_processing_logs 
+-- WHERE attachments_count > processed_attachments_count;
+
+-- who send the most attachments
+-- SELECT email_from, COUNT(*) as email_count 
+-- FROM email_processing_logs 
+-- GROUP BY email_from 
+-- ORDER BY email_count DESC;
