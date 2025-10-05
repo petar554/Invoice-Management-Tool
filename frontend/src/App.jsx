@@ -1,6 +1,7 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { NotificationProvider } from './contexts/NotificationContext'
 import ProtectedRoute, { PublicRoute } from './components/ProtectedRoute'
 import Layout from './components/Layout'
 
@@ -14,8 +15,9 @@ import ProfilePage from './pages/ProfilePage'
 function App() {
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-gray-50">
-        <Routes>
+      <NotificationProvider>
+        <div className="min-h-screen bg-gray-50">
+          <Routes>
           {/* public routes */}
           <Route 
             path="/login" 
@@ -55,7 +57,8 @@ function App() {
             }
           />
         </Routes>
-      </div>
+        </div>
+      </NotificationProvider>
     </AuthProvider>
   )
 }
