@@ -20,9 +20,9 @@ export default function ProtectedRoute({ children }) {
     return <LoadingSpinner />
   }
 
-  if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />
-  }
+  // if (!user) {
+  //   return <Navigate to="/login" state={{ from: location }} replace />
+  // }
 
   // if user is logged in, show protected content
   return children
