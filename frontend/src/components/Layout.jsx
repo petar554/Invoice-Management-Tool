@@ -23,7 +23,7 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex">
       {/* mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -34,8 +34,8 @@ export default function Layout({ children }) {
 
       {/* sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         <div className="flex items-center justify-center h-16 bg-primary-600">
           <h1 className="text-xl font-bold text-white">Invoice Manager</h1>
@@ -91,7 +91,7 @@ export default function Layout({ children }) {
       </div>
 
       {/* main content */}
-      <div className="lg:pl-64">
+      <div className="flex-1 flex flex-col lg:ml-0">
         {/* top bar */}
         <div className="bg-white shadow-sm border-b border-gray-200">
           <div className="px-4 sm:px-6 lg:px-8">
@@ -150,7 +150,7 @@ export default function Layout({ children }) {
         </div>
 
         {/* page content */}
-        <main className="py-8">
+        <main className="flex-1 py-8">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {children}
           </div>
