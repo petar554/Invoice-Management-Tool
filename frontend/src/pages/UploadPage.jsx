@@ -136,7 +136,7 @@ export default function UploadPage() {
       );
 
       const formData = new FormData();
-      formData.append("file", fileItem.file);
+      formData.append("documents", fileItem.file);
 
       // custom fetch with progress tracking
       const response = await fetch(
@@ -153,11 +153,24 @@ export default function UploadPage() {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Upload failed");
+        let errorMessage = "Upload failed";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (jsonError) {
+          console.error("Failed to parse error response:", jsonError);
+          errorMessage = `Upload failed with status ${response.status}`;
+        }
+        throw new Error(errorMessage);
       }
 
-      const result = await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch (jsonError) {
+        console.error("Failed to parse success response:", jsonError);
+        throw new Error("Server returned invalid response");
+      }
 
       //update status to completed
       setUploadQueue((prev) =>
