@@ -39,11 +39,11 @@ class DatabaseService {
         return false;
       }
       
-      console.log('✅ Database schema initialized successfully');
+      console.log('Database schema initialized successfully');
       return true;
       
     } catch (error) {
-      console.error('❌ Database initialization failed:', error.message);
+      console.error('Database initialization failed:', error.message);
       return false;
     }
   }
@@ -89,11 +89,11 @@ class DatabaseService {
         throw new Error(`Failed to insert document: ${error.message}`);
       }
       
-      console.log(`📄 Document inserted: ${filename} (${documentType})`);
+      console.log(`Document inserted: ${filename} (${documentType})`);
       return data;
       
     } catch (error) {
-      console.error('❌ Document insertion failed:', error.message);
+      console.error('Document insertion failed:', error.message);
       throw error;
     }
   }
@@ -117,11 +117,11 @@ class DatabaseService {
         throw new Error(`Failed to update document: ${error.message}`);
       }
       
-      console.log(`📝 Document updated: ${documentId}`);
+      console.log(`Document updated: ${documentId}`);
       return data;
       
     } catch (error) {
-      console.error('❌ Document update failed:', error.message);
+      console.error('Document update failed:', error.message);
       throw error;
     }
   }
@@ -156,11 +156,11 @@ class DatabaseService {
         throw new Error(`Search failed: ${error.message}`);
       }
       
-      console.log(`🔍 Search completed: ${data.length} results for "${query}"`);
+      console.log(`Search completed: ${data.length} results for "${query}"`);
       return data;
       
     } catch (error) {
-      console.error('❌ Document search failed:', error.message);
+      console.error('Document search failed:', error.message);
       throw error;
     }
   }
@@ -183,11 +183,11 @@ class DatabaseService {
         throw new Error(`Classification failed: ${error.message}`);
       }
       
-      console.log(`🏷️ Document classified: "${filename}" → ${data}`);
+      console.log(`Document classified: "${filename}" → ${data}`);
       return data;
       
     } catch (error) {
-      console.error('❌ Document classification failed:', error.message);
+      console.error('Document classification failed:', error.message);
       return 'undefined';
     }
   }
@@ -209,11 +209,11 @@ class DatabaseService {
       }
       
       const stats = data[0] || {};
-      console.log(`📊 Statistics retrieved for user ${userId}`);
+      console.log(`Statistics retrieved for user ${userId}`);
       return stats;
       
     } catch (error) {
-      console.error('❌ Statistics retrieval failed:', error.message);
+      console.error('Statistics retrieval failed:', error.message);
       return {
         total_documents: 0,
         documents_by_type: {},
@@ -261,11 +261,11 @@ class DatabaseService {
         throw new Error(`Failed to save email configuration: ${error.message}`);
       }
       
-      console.log(`📧 Email configuration saved: ${emailAddress}`);
+      console.log(`Email configuration saved: ${emailAddress}`);
       return data;
       
     } catch (error) {
-      console.error('❌ Email configuration save failed:', error.message);
+      console.error('Email configuration save failed:', error.message);
       throw error;
     }
   }
@@ -295,7 +295,7 @@ class DatabaseService {
       return data;
       
     } catch (error) {
-      console.error('❌ Email configuration retrieval failed:', error.message);
+      console.error('Email configuration retrieval failed:', error.message);
       return null;
     }
   }
@@ -344,7 +344,7 @@ class DatabaseService {
       return data;
       
     } catch (error) {
-      console.error('❌ Email processing log failed:', error.message);
+      console.error('Email processing log failed:', error.message);
       throw error;
     }
   }

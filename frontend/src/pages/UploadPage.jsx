@@ -135,42 +135,11 @@ export default function UploadPage() {
         )
       );
 
-      const formData = new FormData();
-      formData.append("documents", fileItem.file);
+      // Use apiService for upload instead of direct fetch
+      const response = await apiService.uploadDocuments(fileItem.file);
 
-      // custom fetch with progress tracking
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/documents/upload`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${
-              (await apiService.getAuthHeaders()).Authorization.split(" ")[1]
-            }`,
-          },
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        let errorMessage = "Upload failed";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch (jsonError) {
-          console.error("Failed to parse error response:", jsonError);
-          errorMessage = `Upload failed with status ${response.status}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      let result;
-      try {
-        result = await response.json();
-      } catch (jsonError) {
-        console.error("Failed to parse success response:", jsonError);
-        throw new Error("Server returned invalid response");
-      }
+      // apiService already handles JSON parsing and error handling
+      const result = await response;
 
       //update status to completed
       setUploadQueue((prev) =>
