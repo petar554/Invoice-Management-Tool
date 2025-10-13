@@ -93,7 +93,7 @@ CREATE TABLE clients (
     
     -- Basic Info
     name VARCHAR(255) NOT NULL,
-    tax_id VARCHAR(50), -- PIB klijenta - KLJUČNO za OCR routing!
+    tax_id VARCHAR(50) NOT NULL, -- PIB klijenta - KLJUČNO za OCR routing!
     alternative_names TEXT[], -- Alternativni nazivi za fuzzy matching
     
     -- Contact Info
@@ -123,7 +123,8 @@ CREATE TABLE clients (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID REFERENCES auth.users(id),
     
-    CONSTRAINT unique_org_tax_id UNIQUE(organization_id, tax_id)
+    CONSTRAINT unique_org_tax_id UNIQUE(organization_id, tax_id),
+    CONSTRAINT valid_tax_id CHECK (LENGTH(tax_id) >= 8)
 );
 
 -- =====================================================
