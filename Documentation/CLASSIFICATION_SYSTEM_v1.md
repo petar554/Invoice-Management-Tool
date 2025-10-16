@@ -101,22 +101,45 @@ Za svakog klijenta unosi:
 
 ## Detaljna Logika po Koracima
 
-### **KORAK 1: Identifikacija Klijenta (PIB)**
+### **KORAK 1: Identifikacija Klijenta i Tipa Fakture**
 
-1. **Otvori dokument** i primeni OCR tehnologiju
-2. **Ekstraktuj PIB** iz teksta (8 cifara)
-3. **Pretraži bazu** klijenata organizacije po PIB-u
+#### **Algoritam za Klasifikaciju Tipa Fakture:**
+
+1. **Ekstraktuj sve PIB-ove** iz dokumenta (OCR)
+2. **Za svaki PIB identifikuj okolni tekst** (±200 karaktera)
+3. **Pretraži ključne riječi** u okolnom tekstu
+4. **Dodeli ulogu** na osnovu konteksta (izdavalac/primalac)
+5. **Validiraj** da ima tačno 1 izdavalac i 1 primalac
+
+#### **Ključni Indikatori:**
+
+1. **Sekcijski naslovi** - Tražiti oznake poput:
+
+   - `"Izdavalac", "Dobavljač", "Prodavac"` → PIB izdavaoca
+   - `"Primalac", "Kupac", "Naručilac"` → PIB primaoca
+
+2. **Pozicija logoa/header-a** - Firma čiji je logo/header na fakturi je obično izdavalac
+
+3. **Bankarski računi** - PIB u bloku gdje su navedeni IBAN/računi je obično izdavaoca (jer njemu se plaća)
+
+#### **Određivanje Tipa Fakture:**
+
+- **PIB organizacije = PIB primaoca** → **ULAZNA FAKTURA** 📥
+  - Klijent = PIB izdavaoca
+- **PIB organizacije = PIB izdavaoca** → **IZLAZNA FAKTURA** 📤
+  - Klijent = PIB primaoca
 
 **Ishodi:**
 
-- ✅ **PIB pronađen** → Klijent identifikovan → Prelazi na KORAK 3
-- ❌ **PIB nije pronađen** → Prelazi na KORAK 2
+- ✅ **Klijent identifikovan + Tip određen** → **KLASIFIKACIJA ZAVRŠENA**
+- ❌ **Klijent nije pronađen** → Prelazi na KORAK 2
+- ❌ **Tip dokumenta nije određen** → **MANUAL REVIEW** (Nedovršen folder)
 
 ---
 
 ### **KORAK 2: Identifikacija Klijenta (Email Fallback)**
 
-**Aktivira se ako:** PIB nije pronađen ili ne postoji u bazi.
+**Aktivira se ako:** Klijent nije pronađen po PIB-u u KORAKU 1.
 
 1. **Proveri email pošiljaoca** (sa kojeg je stigao dokument)
 2. **Izvuci domen** (npr. `@restoran-montenegro.me`)
@@ -124,26 +147,8 @@ Za svakog klijenta unosi:
 
 **Ishodi:**
 
-- ✅ **Email domen prepoznat** → Klijent identifikovan → Prelazi na KORAK 3
+- ✅ **Email domen prepoznat** → Klijent identifikovan → **KLASIFIKACIJA ZAVRŠENA**
 - ❌ **Email domen nije prepoznat** → **MANUAL REVIEW** (Nedovršen folder)
-
----
-
-### **KORAK 3: Klasifikacija Tipa Dokumenta (TBD)**
-
-**Aktivira se ako:** Klijent je uspešno identifikovan (preko PIB-a ili email-a).
-
-1. **OCR analiza** teksta dokumenta
-2. **Pretraga ključnih reči:**
-   - Faktura: "FAKTURA", "INVOICE", "RAČUN", "BROJ FAKTURE"
-   - Ugovor: "UGOVOR", "CONTRACT", "UGOVORNE STRANKE"
-   - Izvod: "IZVOD", "BANK STATEMENT", "TRANSAKCIJE"
-3. **AI fallback** (ako OCR nije siguran)
-
-**Ishodi:**
-
-- ✅ **Tip prepoznat** → **KLASIFIKACIJA ZAVRŠENA** → Smesti u folder
-- ❌ **Tip nije prepoznat** → **MANUAL REVIEW** (Nedovršen folder)
 
 ---
 
@@ -152,7 +157,7 @@ Za svakog klijenta unosi:
 ### Razlozi za Manual Review
 
 1. **Klijent nije identifikovan** (ni po PIB-u, ni po email-u)
-2. **Tip dokumenta nije siguran** (niska pouzdanost OCR/AI)
+2. **Tip dokumenta nije određen** u KORAKU 1 (niska pouzdanost OCR)
 
 ### Struktura Nedovršenog Foldera
 
@@ -324,11 +329,10 @@ Za svakog klijenta unosi:
 
 ## Rezime Logike
 
-| Korak                     | Akcija               | Uspeh →  | Neuspeh →     |
-| ------------------------- | -------------------- | -------- | ------------- |
-| **1. PIB Identifikacija** | OCR ekstraktuje PIB  | KORAK 3  | KORAK 2       |
-| **2. Email Fallback**     | Provera email domena | KORAK 3  | MANUAL REVIEW |
-| **3. Tip Dokumenta**      | OCR/AI klasifikacija | ZAVRŠENO | MANUAL REVIEW |
+| Korak                     | Akcija                  | Uspeh →  | Neuspeh →                 |
+| ------------------------- | ----------------------- | -------- | ------------------------- |
+| **1. PIB Identifikacija** | OCR + Tip klasifikacija | ZAVRŠENO | KORAK 2 ili MANUAL REVIEW |
+| **2. Email Fallback**     | Provera email domena    | ZAVRŠENO | MANUAL REVIEW             |
 
 **Cilj:** Minimizovati manual review (<10% slučajeva) uz održavanje visoke tačnosti klasifikacije.
 
