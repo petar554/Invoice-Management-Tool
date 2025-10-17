@@ -196,7 +196,7 @@ Za svakog klijenta unosi:
 1. Email stigne sa `kontakt@gmail.com` (privatni email)
 2. OCR ekstraktuje PIB: `02987654`
 3. Sistem pronalazi klijenta u bazi
-4. OCR prepoznaje tip: "FAKTURA"
+4. OCR prepoznaje tip: "Ulazna Faktura"
 5. Dokument se klasifikuje
 
 **Rezultat:**
@@ -204,7 +204,7 @@ Za svakog klijenta unosi:
 ```
 ✅ Klijent: Restoran Montenegro DOO (PIB match)
 ✅ Tip: Faktura
-✅ Folder: /org_123/Restoran_Montenegro/fakture/2025/Q4/
+✅ Folder: /org_123/Restoran_Montenegro/Ulazne_Fakture/ime_dokumenta_vrijeme
 ✅ Status: KLASIFIKOVAN
 ```
 
@@ -223,7 +223,7 @@ Za svakog klijenta unosi:
 2. OCR ne pronalazi PIB na dokumentu
 3. Sistem prepoznaje email domen `@itcompany.me`
 4. Sistem pronalazi klijenta u bazi
-5. OCR prepoznaje tip: "FAKTURA"
+5. OCR prepoznaje tip: "Izlazna Faktura"
 6. Dokument se klasifikuje
 
 **Rezultat:**
@@ -231,8 +231,8 @@ Za svakog klijenta unosi:
 ```
 ⚠️  PIB nije pronađen na dokumentu
 ✅ Klijent: IT Company DOO (Email match)
-✅ Tip: Faktura
-✅ Folder: /org_123/IT_Company/fakture/2025/Q4/
+✅ Tip: Izlazna Faktura
+✅ Folder: /org_123/IT_Company/Izlazne_Fakture/ime_dokumenta_vrijeme
 ✅ Status: KLASIFIKOVAN
 ```
 
@@ -259,8 +259,8 @@ Za svakog klijenta unosi:
 ❌ PIB 02777888 nije u bazi
 ❌ Email unknown@newcompany.me nije u bazi
 ⚠️  MANUAL REVIEW potreban
-📁 Folder: /manual_review/unknown@newcompany.me_PIB_02777888/
-🔔 Notifikacija poslata računovodstvu
+📁 Folder: /manual_review/unknown@newcompany.me-02777888/ime_dokumeta
+🔔 Notifikacija poslata računovodstvu i pojavljuje se u aplikaciji
 ✅ Status: PENDING_REVIEW
 ```
 
@@ -288,8 +288,8 @@ Za svakog klijenta unosi:
 ✅ Klijent: Restoran Super DOO (PIB match)
 ❌ Tip dokumenta nije prepoznat (confidence: 45%)
 ⚠️  MANUAL REVIEW potreban
-📁 Folder: /manual_review/office@super.me_PIB_02555666_Restoran_Super/
-🔔 Notifikacija poslata računovodstvu
+📁 Folder: /manual_review/office@super.me-02555666/ime_dokumeta
+🔔 Notifikacija poslata računovodstvu i pojavljuje se u aplikaciji
 ✅ Status: PENDING_REVIEW
 ```
 
