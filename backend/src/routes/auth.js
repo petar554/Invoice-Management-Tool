@@ -1,215 +1,282 @@
-const express = require('express')
-const { body, validationResult } = require('express-validator')
-const { supabase } = require('../config/supabase')
-const { ValidationError, AuthenticationError } = require('../middleware/errorHandler')
+/**
+ * Authentication Routes
+ * Handles user registration, login, and organization creation
+ */
 
-const router = express.Router()
+const express = require("express");
+const router = express.Router();
+const { createClient } = require("../config/supabase");
+const { requireAuth } = require("../middleware/auth");
+const { asyncHandler, ValidationError } = require("../middleware/errorHandler");
+const OrganizationService = require("../services/OrganizationService");
 
-//validation middleware
-const validateInput = (req, res, next) => {
-  const errors = validationResult(req)
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      error: 'Validation failed',
-      details: errors.array()
-    })
-  }
-  next()
-}
+/**
+ * POST /api/auth/register
+ * Register new user and create their first organization
+ */
+router.post(
+  "/register",
+  asyncHandler(async (req, res) => {
+    const { email, password, fullName, organizationName } = req.body;
 
-router.post('/register', [
-  body('email')
-    .isEmail()
-    .normalizeEmail()
-    .withMessage('Valid email is required'),
-  body('password')
-    .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
-  body('fullName')
-    .trim()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('Full name must be between 2 and 100 characters')
-], validateInput, async (req, res, next) => {
-  try {
-    const { email, password, fullName } = req.body
+    // Validate input
+    if (!email || !password || !fullName || !organizationName) {
+      throw new ValidationError(
+        "Email, password, full name, and organization name are required"
+      );
+    }
 
-    //register user with Supabase Auth
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+    if (password.length < 8) {
+      throw new ValidationError("Password must be at least 8 characters long");
+    }
+
+    const supabase = createClient();
+
+    // 1. Create auth user
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password: password,
       options: {
         data: {
-          full_name: fullName
-        }
-      }
-    })
+          full_name: fullName.trim(),
+        },
+      },
+    });
 
-    if (error) {
-      throw new AuthenticationError(error.message)
+    if (authError) {
+      throw new Error(authError.message);
     }
 
-    res.status(201).json({
-      success: true,
-      message: 'Registration successful. Please check your email for verification.',
-      user: {
-        id: data.user?.id,
-        email: data.user?.email,
-        fullName: data.user?.user_metadata?.full_name
-      }
-    })
-  } catch (error) {
-    next(error)
-  }
-})
+    if (!authData.user) {
+      throw new Error("Failed to create user account");
+    }
 
-router.post('/login', [
-  body('email')
-    .isEmail()
-    .normalizeEmail()
-    .withMessage('Valid email is required'),
-  body('password')
-    .notEmpty()
-    .withMessage('Password is required')
-], validateInput, async (req, res, next) => {
-  try {
-    const { email, password } = req.body
+    // 2. Create organization with user as ORG_ADMIN
+    try {
+      const organization = await OrganizationService.create(
+        {
+          name: organizationName.trim(),
+          email: email.trim().toLowerCase(),
+        },
+        authData.user.id
+      );
 
-    // Sign in with Supabase Auth
+      res.status(201).json({
+        message: "Registration successful",
+        user: {
+          id: authData.user.id,
+          email: authData.user.email,
+          full_name: fullName.trim(),
+        },
+        organization: {
+          id: organization.id,
+          name: organization.name,
+          subscription_tier: organization.subscription_tier,
+          trial_ends_at: organization.trial_ends_at,
+        },
+        session: authData.session,
+      });
+    } catch (orgError) {
+      // If organization creation fails, we should ideally delete the auth user
+      // But Supabase doesn't allow this from client SDK
+      console.error(
+        "Organization creation failed after user registration:",
+        orgError
+      );
+      throw new Error(
+        "Registration partially completed. Please contact support."
+      );
+    }
+  })
+);
+
+/**
+ * POST /api/auth/login
+ * Login existing user
+ */
+router.post(
+  "/login",
+  asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      throw new ValidationError("Email and password are required");
+    }
+
+    const supabase = createClient();
+
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
+      email: email.trim().toLowerCase(),
+      password: password,
+    });
 
     if (error) {
-      throw new AuthenticationError('Invalid email or password')
+      return res.status(401).json({
+        error: "Invalid credentials",
+        message: "Email or password is incorrect",
+      });
     }
+
+    // Get user's organizations
+    const organizations = await OrganizationService.getByUserId(data.user.id);
 
     res.json({
-      success: true,
-      message: 'Login successful',
+      message: "Login successful",
       user: {
         id: data.user.id,
         email: data.user.email,
-        fullName: data.user.user_metadata?.full_name
+        full_name: data.user.user_metadata?.full_name,
       },
-      session: {
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        expires_at: data.session.expires_at
-      }
-    })
-  } catch (error) {
-    next(error)
-  }
-})
+      organizations: organizations,
+      session: data.session,
+    });
+  })
+);
 
-router.post('/logout', async (req, res, next) => {
-  try {
-    const { error } = await supabase.auth.signOut()
-    
+/**
+ * POST /api/auth/logout
+ * Logout current user
+ */
+router.post(
+  "/logout",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const supabase = createClient();
+
+    const { error } = await supabase.auth.signOut();
+
     if (error) {
-      throw new AuthenticationError(error.message)
+      throw new Error(error.message);
     }
 
     res.json({
-      success: true,
-      message: 'Logout successful'
-    })
-  } catch (error) {
-    next(error)
-  }
-})
+      message: "Logout successful",
+    });
+  })
+);
 
-//get current user
-router.get('/me', async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new AuthenticationError('Access token required')
-    }
+/**
+ * GET /api/auth/me
+ * Get current user info and organizations
+ */
+router.get(
+  "/me",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = req.user;
 
-    const token = authHeader.substring(7)
-    
-    //get user from token
-    const { data: { user }, error } = await supabase.auth.getUser(token)
-    
-    if (error || !user) {
-      throw new AuthenticationError('Invalid or expired token')
-    }
+    // Get user's organizations
+    const organizations = await OrganizationService.getByUserId(user.id);
 
     res.json({
-      success: true,
       user: {
         id: user.id,
         email: user.email,
-        fullName: user.user_metadata?.full_name,
-        emailVerified: user.email_confirmed_at ? true : false,
-        createdAt: user.created_at
-      }
-    })
-  } catch (error) {
-    next(error)
-  }
-})
+        full_name: user.user_metadata?.full_name,
+        created_at: user.created_at,
+      },
+      organizations: organizations,
+    });
+  })
+);
 
-//refresh token
-router.post('/refresh', [
-  body('refreshToken')
-    .notEmpty()
-    .withMessage('Refresh token is required')
-], validateInput, async (req, res, next) => {
-  try {
-    const { refreshToken } = req.body
+/**
+ * POST /api/auth/refresh
+ * Refresh access token
+ */
+router.post(
+  "/refresh",
+  asyncHandler(async (req, res) => {
+    const { refresh_token } = req.body;
+
+    if (!refresh_token) {
+      throw new ValidationError("Refresh token is required");
+    }
+
+    const supabase = createClient();
 
     const { data, error } = await supabase.auth.refreshSession({
-      refresh_token: refreshToken
-    })
+      refresh_token: refresh_token,
+    });
 
     if (error) {
-      throw new AuthenticationError('Invalid refresh token')
+      return res.status(401).json({
+        error: "Invalid refresh token",
+        message: error.message,
+      });
     }
 
     res.json({
-      success: true,
-      session: {
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        expires_at: data.session.expires_at
+      message: "Token refreshed successfully",
+      session: data.session,
+    });
+  })
+);
+
+/**
+ * POST /api/auth/reset-password
+ * Request password reset email
+ */
+router.post(
+  "/reset-password",
+  asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+      throw new ValidationError("Email is required");
+    }
+
+    const supabase = createClient();
+
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      {
+        redirectTo: `${process.env.FRONTEND_URL}/reset-password`,
       }
-    })
-  } catch (error) {
-    next(error)
-  }
-})
-
-//password reset
-router.post('/forgot-password', [
-  body('email')
-    .isEmail()
-    .normalizeEmail()
-    .withMessage('Valid email is required')
-], validateInput, async (req, res, next) => {
-  try {
-    const { email } = req.body
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.FRONTEND_URL}/reset-password`
-    })
+    );
 
     if (error) {
-      throw new AuthenticationError(error.message)
+      throw new Error(error.message);
+    }
+
+    // Always return success to prevent email enumeration
+    res.json({
+      message:
+        "If an account exists with this email, a password reset link has been sent",
+    });
+  })
+);
+
+/**
+ * POST /api/auth/update-password
+ * Update password (requires authentication)
+ */
+router.post(
+  "/update-password",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 8) {
+      throw new ValidationError(
+        "New password must be at least 8 characters long"
+      );
+    }
+
+    const supabase = createClient();
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      throw new Error(error.message);
     }
 
     res.json({
-      success: true,
-      message: 'Password reset email sent'
-    })
-  } catch (error) {
-    next(error)
-  }
-})
+      message: "Password updated successfully",
+    });
+  })
+);
 
-module.exports = router
+module.exports = router;
