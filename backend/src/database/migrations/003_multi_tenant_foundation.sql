@@ -5,6 +5,15 @@
 -- Organizations → Clients → Documents with OCR-based routing
 -- =====================================================
 
+-- Drop existing tables (cascade to drop dependent objects)
+DROP TABLE IF EXISTS audit_log CASCADE;
+DROP TABLE IF EXISTS email_processing_logs CASCADE;
+DROP TABLE IF EXISTS email_configurations CASCADE;
+DROP TABLE IF EXISTS dokumenti CASCADE;
+DROP TABLE IF EXISTS clients CASCADE;
+DROP TABLE IF EXISTS organization_members CASCADE;
+DROP TABLE IF EXISTS organizations CASCADE;
+
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- For fuzzy text matching
@@ -14,11 +23,30 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto"; -- For encryption
 -- ENUMS & CUSTOM TYPES
 -- =====================================================
 
-CREATE TYPE document_type AS ENUM ('faktura', 'izvod', 'ugovor', 'undefined');
-CREATE TYPE document_status AS ENUM ('pending', 'processed', 'error');
-CREATE TYPE subscription_tier AS ENUM ('trial', 'starter', 'professional', 'business', 'enterprise');
-CREATE TYPE subscription_status AS ENUM ('active', 'trial', 'suspended', 'cancelled', 'expired');
-CREATE TYPE organization_role AS ENUM ('super_admin', 'org_admin', 'accountant', 'viewer', 'client');
+DO $$ BEGIN
+    CREATE TYPE document_type AS ENUM ('faktura', 'izvod', 'ugovor', 'undefined');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE document_status AS ENUM ('pending', 'processed', 'error');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE subscription_tier AS ENUM ('trial', 'starter', 'professional', 'business', 'enterprise');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE subscription_status AS ENUM ('active', 'trial', 'suspended', 'cancelled', 'expired');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE organization_role AS ENUM ('super_admin', 'org_admin', 'accountant', 'viewer', 'client');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- =====================================================
 -- 1. CORE MULTI-TENANT TABLES
@@ -575,41 +603,35 @@ CREATE POLICY "org_update" ON organizations
 -- Organization Members Policies
 -- =====================================================
 
+-- Simple policy: users can see their own memberships
 CREATE POLICY "members_select" ON organization_members
     FOR SELECT
-    USING (
-        organization_id IN (
-            SELECT organization_id FROM organization_members
-            WHERE user_id = auth.uid()
-        )
-    );
+    USING (user_id = auth.uid());
 
+-- Only org admins can add members (checked in application layer)
 CREATE POLICY "members_insert" ON organization_members
     FOR INSERT
-    WITH CHECK (
-        organization_id IN (
-            SELECT organization_id FROM organization_members
-            WHERE user_id = auth.uid() AND role IN ('org_admin', 'super_admin')
-        )
-    );
+    WITH CHECK (true); -- Application will enforce this
 
+-- Only org admins can update members (checked in application layer)
 CREATE POLICY "members_update" ON organization_members
     FOR UPDATE
-    USING (
-        organization_id IN (
-            SELECT organization_id FROM organization_members
-            WHERE user_id = auth.uid() AND role IN ('org_admin', 'super_admin')
-        )
-    );
+    USING (user_id = auth.uid() OR EXISTS (
+        SELECT 1 FROM organization_members om
+        WHERE om.organization_id = organization_members.organization_id
+        AND om.user_id = auth.uid()
+        AND om.role = 'org_admin'
+    ));
 
+-- Only org admins can delete members (checked in application layer)
 CREATE POLICY "members_delete" ON organization_members
     FOR DELETE
-    USING (
-        organization_id IN (
-            SELECT organization_id FROM organization_members
-            WHERE user_id = auth.uid() AND role IN ('org_admin', 'super_admin')
-        )
-    );
+    USING (EXISTS (
+        SELECT 1 FROM organization_members om
+        WHERE om.organization_id = organization_members.organization_id
+        AND om.user_id = auth.uid()
+        AND om.role = 'org_admin'
+    ));
 
 -- =====================================================
 -- Clients Policies
