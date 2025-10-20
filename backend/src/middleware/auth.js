@@ -1,118 +1,93 @@
-const { supabase } = require('../config/supabase')
-const { AuthenticationError } = require('./errorHandler')
+/**
+ * Authentication Middleware
+ * Verifies JWT tokens from Supabase Auth and attaches user to request
+ */
+
+const { createClient } = require("../config/supabase");
 
 /**
- * Authentication middleware to verify JWT tokens from Supabase
+ * Middleware to require authentication
+ * Validates JWT token and attaches user object to req.user
  */
-const authMiddleware = async (req, res, next) => {
+const requireAuth = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization
+    // Extract token from Authorization header
+    const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new AuthenticationError('Access token required')
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        error: "No token provided",
+        message: "Authorization header with Bearer token is required",
+      });
     }
 
-    const token = authHeader.substring(7) // Remove "Bearer " prefix
+    const token = authHeader.replace("Bearer ", "");
 
-    // verify token with Supabase
-    const { data: { user }, error } = await supabase.auth.getUser(token)
+    // Verify token with Supabase
+    const supabase = createClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
 
     if (error || !user) {
-      throw new AuthenticationError('Invalid or expired token')
+      return res.status(401).json({
+        error: "Invalid token",
+        message: error?.message || "Token verification failed",
+      });
     }
 
-    // check if user email is verified (optional, depending on requirements)
-    if (!user.email_confirmed_at && process.env.REQUIRE_EMAIL_VERIFICATION === 'true') {
-      throw new AuthenticationError('Email verification required')
-    }
+    // Attach user and token to request
+    req.user = user;
+    req.token = token;
 
-    // attach user to request object
-    req.user = {
-      id: user.id,
-      email: user.email,
-      fullName: user.user_metadata?.full_name,
-      emailVerified: !!user.email_confirmed_at,
-      role: user.user_metadata?.role || 'user',
-      createdAt: user.created_at
-    }
-
-    // Attach the original token for potential use in subsequent requests
-    req.token = token
-
-    next()
+    next();
   } catch (error) {
-    // Set appropriate status code for authentication errors
-    if (error instanceof AuthenticationError) {
-      res.status(401)
-    }
-    next(error)
+    console.error("Auth middleware error:", error);
+    return res.status(500).json({
+      error: "Authentication error",
+      message: "Internal server error during authentication",
+    });
   }
-}
+};
 
 /**
- * Optional middleware to check user roles
- * @param {string[]} allowedRoles - Array of roles that are allowed to access the route
- */
-const requireRole = (allowedRoles = []) => {
-  return (req, res, next) => {
-    try {
-      if (!req.user) {
-        throw new AuthenticationError('Authentication required')
-      }
-
-      const userRole = req.user.role || 'user'
-      
-      if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
-        const error = new Error('Insufficient permissions')
-        error.name = 'AuthorizationError'
-        res.status(403)
-        return next(error)
-      }
-
-      next()
-    } catch (error) {
-      next(error)
-    }
-  }
-}
-
-/**
- * Middleware to optionally authenticate user (doesn't fail if no token)
- * Useful for endpoints that work differently for authenticated vs anonymous users
+ * Optional authentication - doesn't fail if no token
+ * Used for endpoints that have different behavior for authenticated users
  */
 const optionalAuth = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization
+    const authHeader = req.headers.authorization;
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      
-      const { data: { user }, error } = await supabase.auth.getUser(token)
-
-      if (!error && user) {
-        req.user = {
-          id: user.id,
-          email: user.email,
-          fullName: user.user_metadata?.full_name,
-          emailVerified: !!user.email_confirmed_at,
-          role: user.user_metadata?.role || 'user',
-          createdAt: user.created_at
-        }
-        req.token = token
-      }
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      // No token provided, continue without user
+      req.user = null;
+      return next();
     }
 
-    // Continue regardless of authentication status
-    next()
+    const token = authHeader.replace("Bearer ", "");
+    const supabase = createClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
+
+    if (!error && user) {
+      req.user = user;
+      req.token = token;
+    } else {
+      req.user = null;
+    }
+
+    next();
   } catch (error) {
-    // Log the error but don't fail the request
-    console.warn('Optional auth failed:', error.message)
-    next()
+    console.error("Optional auth middleware error:", error);
+    req.user = null;
+    next();
   }
-}
+};
 
 module.exports = {
-  authMiddleware,
-  requireRole,
-  optionalAuth
-}
+  requireAuth,
+  optionalAuth,
+};
