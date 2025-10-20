@@ -1,128 +1,148 @@
-// Error handling middleware for the application
+/**
+ * Global Error Handler Middleware
+ * Centralized error handling for all routes
+ */
 
-const notFound = (req, res, next) => {
-  const error = new Error(`Not Found - ${req.originalUrl}`)
-  res.status(404)
-  next(error)
-}
-
+/**
+ * Global error handling middleware
+ * Must be registered AFTER all routes
+ */
 const errorHandler = (err, req, res, next) => {
-  // Default to 500 server error
-  let statusCode = res.statusCode === 200 ? 500 : res.statusCode
-  let message = err.message
+  // Log error for debugging
+  console.error("Error occurred:", {
+    timestamp: new Date().toISOString(),
+    path: req.path,
+    method: req.method,
+    error: err.message,
+    stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+  });
 
-  // Mongoose bad ObjectId
-  if (err.name === 'CastError' && err.kind === 'ObjectId') {
-    statusCode = 404
-    message = 'Resource not found'
+  // Default error status and message
+  let statusCode = err.statusCode || 500;
+  let message = err.message || "Internal server error";
+
+  // Handle specific error types
+  if (err.name === "ValidationError") {
+    statusCode = 400;
+    message = "Validation error";
+  } else if (err.name === "UnauthorizedError") {
+    statusCode = 401;
+    message = "Unauthorized";
+  } else if (err.name === "ForbiddenError") {
+    statusCode = 403;
+    message = "Forbidden";
+  } else if (err.name === "NotFoundError") {
+    statusCode = 404;
+    message = "Resource not found";
+  } else if (err.code === "23505") {
+    // PostgreSQL unique constraint violation
+    statusCode = 409;
+    message = "Resource already exists";
+  } else if (err.code === "23503") {
+    // PostgreSQL foreign key violation
+    statusCode = 400;
+    message = "Invalid reference to related resource";
+  } else if (err.code === "23502") {
+    // PostgreSQL not null violation
+    statusCode = 400;
+    message = "Required field missing";
   }
 
-  // Supabase errors
-  if (err.code) {
-    switch (err.code) {
-      case '23505': // Unique violation
-        statusCode = 409
-        message = 'Resource already exists'
-        break
-      case '23503': // Foreign key violation
-        statusCode = 400
-        message = 'Invalid reference'
-        break
-      case '23502': // Not null violation
-        statusCode = 400
-        message = 'Required field missing'
-        break
-      case 'PGRST116': // Table or view not found
-        statusCode = 404
-        message = 'Resource not found'
-        break
-      default:
-        if (err.code.startsWith('23')) {
-          statusCode = 400
-          message = 'Database constraint violation'
-        }
-    }
+  // Build error response
+  const errorResponse = {
+    error: message,
+    statusCode,
+    timestamp: new Date().toISOString(),
+    path: req.path,
+  };
+
+  // Add validation details if available
+  if (err.details) {
+    errorResponse.details = err.details;
   }
 
-  // JWT errors
-  if (err.name === 'JsonWebTokenError') {
-    statusCode = 401
-    message = 'Invalid token'
-  } else if (err.name === 'TokenExpiredError') {
-    statusCode = 401
-    message = 'Token expired'
+  // Add stack trace in development
+  if (process.env.NODE_ENV === "development" && err.stack) {
+    errorResponse.stack = err.stack;
   }
 
-  // Multer errors (file upload)
-  if (err.code === 'LIMIT_FILE_SIZE') {
-    statusCode = 413
-    message = 'File too large'
-  } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-    statusCode = 400
-    message = 'Unexpected file field'
-  }
+  res.status(statusCode).json(errorResponse);
+};
 
-  // Log error in development
-  if (process.env.NODE_ENV === 'development') {
-    console.error('Error:', {
-      message: err.message,
-      stack: err.stack,
-      code: err.code,
-      name: err.name
-    })
-  }
+/**
+ * 404 Not Found handler
+ * Handles requests to non-existent routes
+ */
+const notFoundHandler = (req, res) => {
+  res.status(404).json({
+    error: "Route not found",
+    message: `Cannot ${req.method} ${req.path}`,
+    statusCode: 404,
+    timestamp: new Date().toISOString(),
+  });
+};
 
-  // Send error response
-  res.status(statusCode).json({
-    error: {
-      message,
-      ...(process.env.NODE_ENV === 'development' && { 
-        stack: err.stack,
-        details: err 
-      })
-    },
-    success: false,
-    timestamp: new Date().toISOString()
-  })
-}
+/**
+ * Async route wrapper to catch errors in async handlers
+ * Usage: router.get('/path', asyncHandler(async (req, res) => { ... }))
+ */
+const asyncHandler = (fn) => {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+};
 
-// Custom error classes
+/**
+ * Custom error classes for better error handling
+ */
 class ValidationError extends Error {
-  constructor(message, field = null) {
-    super(message)
-    this.name = 'ValidationError'
-    this.field = field
+  constructor(message, details) {
+    super(message);
+    this.name = "ValidationError";
+    this.statusCode = 400;
+    this.details = details;
   }
 }
 
-class AuthenticationError extends Error {
-  constructor(message = 'Authentication failed') {
-    super(message)
-    this.name = 'AuthenticationError'
+class UnauthorizedError extends Error {
+  constructor(message = "Unauthorized") {
+    super(message);
+    this.name = "UnauthorizedError";
+    this.statusCode = 401;
   }
 }
 
-class AuthorizationError extends Error {
-  constructor(message = 'Access denied') {
-    super(message)
-    this.name = 'AuthorizationError'
+class ForbiddenError extends Error {
+  constructor(message = "Forbidden") {
+    super(message);
+    this.name = "ForbiddenError";
+    this.statusCode = 403;
   }
 }
 
-class DocumentProcessingError extends Error {
-  constructor(message, documentId = null, processingStep = null) {
-    super(message)
-    this.name = 'DocumentProcessingError'
-    this.documentId = documentId
-    this.processingStep = processingStep
+class NotFoundError extends Error {
+  constructor(message = "Resource not found") {
+    super(message);
+    this.name = "NotFoundError";
+    this.statusCode = 404;
+  }
+}
+
+class ConflictError extends Error {
+  constructor(message = "Resource conflict") {
+    super(message);
+    this.name = "ConflictError";
+    this.statusCode = 409;
   }
 }
 
 module.exports = {
-  notFound,
   errorHandler,
+  notFoundHandler,
+  asyncHandler,
   ValidationError,
-  AuthenticationError,
-  AuthorizationError,
-  DocumentProcessingError
-}
+  UnauthorizedError,
+  ForbiddenError,
+  NotFoundError,
+  ConflictError,
+};
