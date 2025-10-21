@@ -1,0 +1,3 @@
+TODO:
+- Refactor backend da koristi ANON_KEY + JWT token umesto SERVICE_ROLE_KEY za production security.
+
